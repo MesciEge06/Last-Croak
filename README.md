@@ -68,14 +68,7 @@
 
 ---
 
-## 🛠️ Developer & Mod Menu (Uzmy Mod Menu)
 
-Press `F9` or type `u` `z` `m` `y` sequentially to toggle the developer menu:
-- **God Mode**: Infinite health and stamina.
-- **One-Hit Kill**: Instantly defeat any enemy or boss.
-- **Speed Boost**: Adjustable movement speed multipliers.
-- **Teleportation**: Instant travel to any realm, dungeon, or boss arena.
-- **Unlock All Items**: Add all weapons, armor sets, and spells directly to your inventory.
 
 ---
 
