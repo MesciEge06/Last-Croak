@@ -11,7 +11,6 @@
 ## 📋 Table of Contents
 - [🌟 Key Features & Systems](#-key-features--systems)
 - [🎮 Controls](#-controls)
-- [🛠️ Developer & Mod Menu](#️-developer--mod-menu)
 - [🚀 Quick Start](#-quick-start)
 
 ---
