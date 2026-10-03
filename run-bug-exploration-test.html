@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Initialization Bug Condition Exploration Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background-color: #1a1a1a;
+            color: #00ff00;
+            overflow-x: auto;
+        }
+        
+        #test-output {
+            background: #000;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.4;
+            min-height: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        #game-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            background: #000;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .test-container {
+            position: relative;
+            z-index: 10;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(5px);
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .warning {
+            background: #4a1a1a;
+            border: 1px solid #ff4444;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: #ffaaaa;
+        }
+        
+        .info {
+            background: #1a1a4a;
+            border: 1px solid #4444ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: #aaaaff;
+        }
+        
+        button {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-family: inherit;
+        }
+        
+        button:hover {
+            background: #444;
+        }
+        
+        button:active {
+            background: #222;
+        }
+        
+        /* Game UI elements that might appear */
+        #main-menu, #hud-overlay {
+            position: fixed;
+            z-index: 5;
+        }
+        
+        /* Hide main menu by default for testing */
+        #main-menu {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🐛 Game Initialization Bug Condition Exploration Test</h1>
+        
+        <div class="warning">
+            <strong>⚠️ CRITICAL TEST INFORMATION:</strong><br>
+            • This test is <strong>EXPECTED TO FAIL</strong> on unfixed code<br>
+            • Test failure CONFIRMS the bug exists (this is the SUCCESS condition)<br>
+            • Test passing would indicate the bug doesn't exist or test is incorrect<br>
+            • This is Task 1 of the bugfix workflow - exploration before implementation
+        </div>
+        
+        <div class="info">
+            <strong>📋 Test Purpose:</strong><br>
+            Testing the "Multiple Scene/Renderer Instances" bug condition by simulating<br>
+            the concrete failing case: clicking "New Game" button and verifying that<br>
+            initialization creates exactly ONE scene, ONE renderer, ONE game loop.
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button onclick="runTest()">🚀 Run Bug Exploration Test</button>
+            <button onclick="clearOutput()">🗑️ Clear Output</button>
+            <button onclick="location.reload()">🔄 Reload Page</button>
+        </div>
+        
+        <div id="test-output">Click "Run Bug Exploration Test" to start testing the bug condition...\n\nLoading game scripts...</div>
+    </div>
+    
+    <!-- Game Canvas (will be used by initialization test) -->
+    <canvas id="game-canvas" class="hidden"></canvas>
+    
+    <!-- Game UI Elements -->
+    <div id="main-menu" class="hidden">
+        <button id="new-game-btn">New Game</button>
+    </div>
+    
+    <div id="hud-overlay" class="hidden">
+        <!-- HUD elements -->
+    </div>
+    
+    <!-- Load Three.js Library -->
+    <script src="src/three.min.js"></script>
+    
+    <!-- Load Game Scripts in Dependency Order -->
+    <!-- Core Scene Management (must load first) -->
+    <script src="scene.js"></script>
+    
+    <!-- Core Systems -->
+    <script src="src/core/Renderer.js"></script>
+    <script src="src/core/InputManager.js"></script>
+    <script src="src/core/Engine.js"></script>
+    
+    <!-- Entities -->
+    <script src="src/entities/Player.js"></script>
+    
+    <!-- Legacy Bootstrap (will be disabled by Engine.js guard) -->
+    <script src="src/main.js"></script>
+    
+    <!-- Game Data (simplified for testing) -->
+    <script>
+        // Minimal game data for testing
+        window.GameData = {
+            player: {
+                maxHp: 100,
+                maxStamina: 100,
+                maxMana: 50,
+                staminaCostLight: 10,
+                staminaCostHeavy: 25,
+                staminaCostDash: 15,
+                staminaCostParry: 10,
+                staminaRegenDelay: 1.0,
+                critChance: 0.1,
+                critMultiplier: 1.5,
+                maxCombo: 4,
+                comboWindow: 2.0,
+                comboBonus: [1.0, 1.1, 1.25, 1.5]
+            }
+        };
+        
+        // Minimal weapon data
+        window.WeaponData = {
+            tongue: {
+                id: 'tongue',
+                name: 'Tongue Attack',
+                damage: 18,
+                range: 2.5,
+                lightCombo: [1.0, 1.1, 1.2, 1.3]
+            }
+        };
+        
+        // Stub other required systems
+        window.Companion = {
+            init: () => console.log('[Companion] Stub init'),
+            update: () => {}
+        };
+        
+        window.EnvironmentBuilder = {
+            init: () => console.log('[EnvironmentBuilder] Stub init'),
+            getTerrainHeight: () => 0,
+            clear: () => {}
+        };
+        
+        window.HUD = {
+            init: () => console.log('[HUD] Stub init'),
+            updateHp: () => {},
+            updateStamina: () => {},
+            updateMana: () => {},
+            updateCorruption: () => {},
+            updateXP: () => {}
+        };
+        
+        window.CombatSystem = {
+            init: () => console.log('[CombatSystem] Stub init'),
+            update: () => {},
+            meleeAttack: () => {}
+        };
+        
+        window.AudioManager = {
+            init: () => console.log('[AudioManager] Stub init'),
+            play: () => {},
+            playBGM: () => {}
+        };
+        
+        window.Minimap = {
+            init: () => console.log('[Minimap] Stub init'),
+            update: () => {}
+        };
+        
+        window.QuestTracker = {
+            init: () => console.log('[QuestTracker] Stub init')
+        };
+        
+        // Stub save system
+        window.SaveSystem = {
+            saveGame: () => console.log('[SaveSystem] Stub saveGame'),
+            collectState: () => ({}),
+            autoSave: () => {}
+        };
+        
+        // Simple MainMenu stub with startNewGame function
+        window.MainMenu = {
+            startNewGame: function() {
+                console.log('[MainMenu] startNewGame() called');
+                if (window.Engine && typeof window.Engine.start === 'function') {
+                    window.Engine.start(null);
+                }
+            }
+        };
+    </script>
+    
+    <!-- Load Bug Exploration Test -->
+    <script src="test-bug-condition-exploration.js"></script>
+    
+    <script>
+        // Redirect console output to our test output div
+        const output = document.getElementById('test-output');
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function appendToOutput(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : '📝';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            appendToOutput(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            appendToOutput(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            appendToOutput(args.join(' '), 'warn');
+        };
+        
+        // Test control functions
+        function runTest() {
+            clearOutput();
+            console.log('🧪 Manual test run requested by user');
+            
+            if (window.BugExplorationTest && typeof window.BugExplorationTest.runBugExplorationTest === 'function') {
+                window.BugExplorationTest.runBugExplorationTest()
+                    .then(result => {
+                        console.log('✅ Test completed successfully');
+                        
+                        // Update PBT status based on result
+                        if (result.result === 'failed') {
+                            console.log('📊 Test failed as expected - bug condition confirmed');
+                            // This is the success case for exploration test
+                        } else if (result.result === 'unexpected_pass') {
+                            console.log('⚠️ Test passed unexpectedly - needs investigation');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('💥 Test execution failed:', error);
+                    });
+            } else {
+                console.error('❌ Bug exploration test not loaded or not available');
+            }
+        }
+        
+        function clearOutput() {
+            output.textContent = '';
+        }
+        
+        // Log initial state
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🌟 Bug Condition Exploration Test Environment Ready');
+            console.log('📋 Loaded game scripts:');
+            console.log('   - THREE.js: ' + (window.THREE ? '✓' : '✗'));
+            console.log('   - SceneManager: ' + (window.SceneManager ? '✓' : '✗'));
+            console.log('   - Renderer: ' + (window.Renderer ? '✓' : '✗'));
+            console.log('   - Engine: ' + (window.Engine ? '✓' : '✗'));
+            console.log('   - Player: ' + (window.Player ? '✓' : '✗'));
+            console.log('   - InputManager: ' + (window.InputManager ? '✓' : '✗'));
+            console.log('');
+            console.log('🎯 Ready to test bug condition. Click "Run Bug Exploration Test" to begin.');
+        });
+    </script>
+</body>
+</html>

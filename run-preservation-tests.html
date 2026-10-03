@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preservation Property Tests - Baseline Behavior</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #00ff00;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      border: 2px solid #00ff00;
+      background: rgba(0, 255, 0, 0.1);
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #333;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    .console-output {
+      background: #111;
+      padding: 15px;
+      border: 1px solid #444;
+      font-size: 12px;
+      height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-top: 15px;
+    }
+    button {
+      background: #004400;
+      color: #00ff00;
+      border: 2px solid #00ff00;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-family: inherit;
+      margin: 5px;
+    }
+    button:hover {
+      background: #006600;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #666;
+    }
+    .pass { border-color: #00ff00; background: rgba(0, 255, 0, 0.1); }
+    .fail { border-color: #ff0000; background: rgba(255, 0, 0, 0.1); color: #ff6666; }
+    .warning { border-color: #ffaa00; background: rgba(255, 170, 0, 0.1); color: #ffaa00; }
+    #game-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      opacity: 0.3;
+    }
+  </style>
+</head>
+<body>
+  <!-- Hidden game canvas for 3D rendering tests -->
+  <canvas id="game-canvas"></canvas>
+  
+  <!-- Game HUD elements (required for HUD tests) -->
+  <div id="hud-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;">
+    <div id="hp-bar-fill" style="width: 100%; height: 10px; background: green;"></div>
+    <div id="stamina-bar-fill" style="width: 100%; height: 8px; background: yellow;"></div>
+    <div id="mana-bar-fill" style="width: 100%; height: 8px; background: blue;"></div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>🧪 PRESERVATION PROPERTY TESTS</h1>
+      <p><strong>PURPOSE:</strong> Establish baseline behavior BEFORE implementing bugfix</p>
+      <p><strong>VALIDATION:</strong> Requirements 3.3, 3.5, 3.6, 3.7, 3.8, 3.9, 3.12</p>
+      <p><strong>EXPECTED OUTCOME:</strong> Tests PASS (confirms baseline to preserve)</p>
+    </div>
+
+    <div class="test-section">
+      <h2>🎮 Game System Initialization Status</h2>
+      <div id="system-status"></div>
+      <button onclick="initializeGameSystems()">Initialize Game Systems</button>
+      <button onclick="runPreservationTests()">Run Preservation Tests</button>
+      <button onclick="clearConsole()">Clear Console</button>
+    </div>
+
+    <div class="test-section">
+      <h2>📊 Test Results Summary</h2>
+      <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>📝 Console Output</h2>
+      <div id="console-output" class="console-output"></div>
+    </div>
+  </div>
+
+  <!-- Load Three.js -->
+  <script src="src/three.min.js"></script>
+  
+  <!-- Load Game Data -->
+  <script src="src/data/GameData.js"></script>
+  <script src="src/data/WeaponData.js"></script>
+  <script src="src/data/ChapterData.js"></script>
+  
+  <!-- Load Core Systems -->
+  <script src="scene.js"></script>
+  <script src="src/core/Renderer.js"></script>
+  <script src="src/core/InputManager.js"></script>
+  <script src="src/core/SaveSystem.js"></script>
+  
+  <!-- Load Game Systems -->
+  <script src="src/entities/Player.js"></script>
+  <script src="src/core/Engine.js"></script>
+  <script src="src/combat/CombatSystem.js"></script>
+  <script src="src/ui/HUD.js"></script>
+  
+  <!-- Load Preservation Tests -->
+  <script src="test-preservation-properties.js"></script>
+
+  <script>
+    // Console output redirection
+    const consoleDiv = document.getElementById('console-output');
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    function appendToConsole(message, type = 'log') {
+      const timestamp = new Date().toLocaleTimeString();
+      const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : '📝';
+      consoleDiv.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      appendToConsole(args.join(' '), 'log');
+    };
+
+    console.error = function(...args) {
+      originalError.apply(console, args);
+      appendToConsole(args.join(' '), 'error');
+    };
+
+    console.warn = function(...args) {
+      originalWarn.apply(console, args);
+      appendToConsole(args.join(' '), 'warn');
+    };
+
+    function clearConsole() {
+      consoleDiv.textContent = '';
+      console.log('Console cleared');
+    }
+
+    function updateSystemStatus() {
+      const statusDiv = document.getElementById('system-status');
+      const systems = [
+        { name: 'THREE.js', available: typeof THREE !== 'undefined' },
+        { name: 'SceneManager', available: typeof window.SceneManager !== 'undefined' },
+        { name: 'Renderer', available: typeof window.Renderer !== 'undefined' },
+        { name: 'InputManager', available: typeof window.InputManager !== 'undefined' },
+        { name: 'Player', available: typeof window.Player !== 'undefined' },
+        { name: 'Engine', available: typeof window.Engine !== 'undefined' },
+        { name: 'CombatSystem', available: typeof window.CombatSystem !== 'undefined' },
+        { name: 'HUD', available: typeof window.HUD !== 'undefined' },
+        { name: 'SaveSystem', available: typeof window.SaveSystem !== 'undefined' }
+      ];
+
+      statusDiv.innerHTML = systems.map(system => 
+        `<div class="${system.available ? 'pass' : 'fail'}">
+          ${system.available ? '✅' : '❌'} ${system.name}
+        </div>`
+      ).join('');
+
+      return systems.every(system => system.available);
+    }
+
+    function initializeGameSystems() {
+      console.log('🚀 Initializing game systems for preservation testing...');
+      
+      try {
+        // Initialize core systems in dependency order
+        console.log('1. Initializing SceneManager...');
+        if (window.SceneManager) {
+          window.SceneManager.init('game-canvas');
+        }
+
+        console.log('2. Initializing Renderer...');
+        if (window.Renderer) {
+          window.Renderer.init('game-canvas');
+        }
+
+        console.log('3. Initializing InputManager...');
+        if (window.InputManager) {
+          window.InputManager.unlock();
+        }
+
+        console.log('4. Initializing Player...');
+        if (window.Player) {
+          window.Player.init(null);
+        }
+
+        console.log('5. Initializing CombatSystem...');
+        if (window.CombatSystem) {
+          window.CombatSystem.init();
+        }
+
+        console.log('6. Initializing HUD...');
+        if (window.HUD) {
+          window.HUD.init();
+        }
+
+        console.log('✅ Game systems initialized successfully!');
+        updateSystemStatus();
+
+      } catch (error) {
+        console.error('💥 Failed to initialize game systems:', error);
+        updateSystemStatus();
+      }
+    }
+
+    function runPreservationTests() {
+      if (!updateSystemStatus()) {
+        console.error('❌ Cannot run tests - missing required systems');
+        return;
+      }
+
+      console.log('🧪 Starting preservation property tests...');
+      
+      if (typeof runPreservationTests === 'undefined') {
+        console.error('❌ Preservation tests not loaded');
+        return;
+      }
+
+      try {
+        // Run the tests (function is loaded from test-preservation-properties.js)
+        const results = window.runPreservationTests();
+        displayTestResults(results);
+      } catch (error) {
+        console.error('💥 Test execution failed:', error);
+      }
+    }
+
+    function displayTestResults(results) {
+      const resultsDiv = document.getElementById('test-results');
+      
+      if (!results) {
+        resultsDiv.innerHTML = '<div class="fail">❌ No test results available</div>';
+        return;
+      }
+
+      const overallStatus = results.overallSuccess ? 'pass' : 'fail';
+      const statusIcon = results.overallSuccess ? '✅' : '❌';
+      
+      resultsDiv.innerHTML = `
+        <div class="${overallStatus}">
+          <h3>${statusIcon} Overall Result: ${results.overallSuccess ? 'PASS' : 'FAIL'}</h3>
+          <p><strong>Baseline Behavior:</strong> ${results.overallSuccess ? 'PRESERVED' : 'ISSUES DETECTED'}</p>
+        </div>
+        
+        <h4>Individual Test Results:</h4>
+        ${Object.entries(results)
+          .filter(([key]) => key !== 'overallSuccess' && key !== 'error')
+          .map(([test, result]) => {
+            const status = result ? 'pass' : 'fail';
+            const icon = result ? '✅' : '❌';
+            return `<div class="${status}">${icon} ${test}: ${result ? 'PASS' : 'FAIL'}</div>`;
+          }).join('')}
+        
+        ${results.error ? `<div class="fail">❌ Error: ${results.error}</div>` : ''}
+      `;
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🎯 Preservation Property Test Runner Ready');
+      console.log('📋 This test establishes baseline behavior BEFORE implementing the bugfix');
+      console.log('🎮 Click "Initialize Game Systems" then "Run Preservation Tests"');
+      
+      updateSystemStatus();
+      
+      // Auto-initialize after a short delay
+      setTimeout(() => {
+        initializeGameSystems();
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

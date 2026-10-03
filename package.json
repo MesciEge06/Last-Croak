@@ -1,0 +1,53 @@
+{
+  "name": "the-last-croak",
+  "version": "1.0.0",
+  "description": "The Last Croak — 3D Aksiyon RPG Oyunu",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win"
+  },
+  "author": "The Last Croak Team",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.thelastcroak.game",
+    "productName": "The Last Croak",
+    "directories": {
+      "output": "dist-release"
+    },
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "scene.js",
+      "src/**/*",
+      "styles/**/*",
+      "assets/**/*",
+      "package.json"
+    ]
+  }
+}

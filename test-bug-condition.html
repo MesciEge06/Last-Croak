@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Condition Exploration Test - Game Initialization</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0e27;
+      color: #e0e0e0;
+      padding: 20px;
+      margin: 0;
+    }
+    #test-output {
+      background: #1a1e2e;
+      border: 2px solid #2a3a5a;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      max-width: 1200px;
+    }
+    h1 {
+      color: #ff6b6b;
+      border-bottom: 3px solid #ff6b6b;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #ffd93d;
+      margin-top: 30px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #0f1419;
+      border-left: 4px solid #6c5ce7;
+      border-radius: 4px;
+    }
+    .pass {
+      color: #51cf66;
+      font-weight: bold;
+    }
+    .fail {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
+    .warning {
+      color: #ffd93d;
+      font-weight: bold;
+    }
+    .info {
+      color: #74c0fc;
+    }
+    .counterexample {
+      background: #2d1818;
+      border: 1px solid #ff6b6b;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .expected-behavior {
+      background: #182d18;
+      border: 1px solid #51cf66;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    pre {
+      background: #000;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    button {
+      background: #6c5ce7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #5f3dc4;
+    }
+    button:disabled {
+      background: #495057;
+      cursor: not-allowed;
+    }
+    .critical {
+      background: #2d1818;
+      border: 2px solid #ff6b6b;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="test-output">
+    <h1>🐛 Bug Condition Exploration Test - Game Initialization</h1>
+    <div class="critical">
+      <strong>⚠️ CRITICAL - Bug Exploration Test (Run on UNFIXED Code)</strong><br>
+      <p><strong>Expected Outcome:</strong> This test MUST FAIL on unfixed code - failure confirms the bug exists</p>
+      <p><strong>DO NOT attempt to fix the test or the code when it fails</strong></p>
+      <p><strong>Goal:</strong> Surface counterexamples demonstrating initialization creates duplicate scenes/renderers</p>
+    </div>
+
+    <div class="test-section">
+      <h2>Test Setup</h2>
+      <p><strong>Property 1: Bug Condition</strong> - Multiple Scene/Renderer Instances</p>
+      <p>Testing that after Engine.start() completes:</p>
+      <ul>
+        <li>sceneInstanceCount == 1</li>
+        <li>rendererInstanceCount == 1</li>
+        <li>activeGameLoops == 1</li>
+        <li>playerMeshScene == activeRenderScene</li>
+        <li>inputEventsConnected == true</li>
+        <li>gameLoopRunning == true</li>
+        <li>firstFrameRendered == true</li>
+      </ul>
+      <p><strong>Validates:</strong> Requirements 1.1, 1.2, 1.4, 1.5, 1.6, 1.7, 1.12</p>
+    </div>
+
+    <button id="run-test-btn" onclick="runBugConditionTest()">▶ Run Bug Condition Test</button>
+    <button onclick="location.reload()">🔄 Reset Test</button>
+
+    <div id="results"></div>
+  </div>
+
+  <!-- Load Three.js first -->
+  <script src="src/three.min.js"></script>
+
+  <!-- Load game files in dependency order -->
+  <script src="scene.js"></script>
+  <script src="src/core/InputManager.js"></script>
+  <script src="src/core/Renderer.js"></script>
+  <script src="src/world/EnvironmentBuilder.js"></script>
+  <script src="src/entities/Player.js"></script>
+  <script src="src/entities/Companion.js"></script>
+  <script src="src/ui/HUD.js"></script>
+  <script src="src/combat/CombatSystem.js"></script>
+  <script src="src/ai/audio/AudioManager.js"></script>
+  <script src="src/ui/Minimap.js"></script>
+  <script src="src/ui/QuestTracker.js"></script>
+  <script src="src/data/ChapterData.js"></script>
+  <script src="src/core/Engine.js"></script>
+
+  <script>
+    let testResults = [];
+
+    function log(message, type = 'info') {
+      const colors = {
+        info: '#74c0fc',
+        pass: '#51cf66',
+        fail: '#ff6b6b',
+        warning: '#ffd93d'
+      };
+      console.log(`%c${message}`, `color: ${colors[type]}; font-weight: bold;`);
+      testResults.push({ message, type });
+    }
+
+    function displayResults() {
+      const resultsDiv = document.getElementById('results');
+      let html = '<h2>Test Results</h2>';
+      
+      testResults.forEach(result => {
+        html += `<div class="test-section"><span class="${result.type}">${result.message}</span></div>`;
+      });
+      
+      resultsDiv.innerHTML = html;
+    }
+
+    function countSceneInstances() {
+      let count = 0;
+      
+      // Check SceneManager singleton
+      if (window.SceneManager && window.SceneManager.getScene) {
+        const scene = window.SceneManager.getScene();
+        if (scene && scene instanceof THREE.Scene) {
+          count++;
+          log(`Found Scene #${count}: SceneManager singleton (${scene.children.length} children)`, 'info');
+        }
+      }
+      
+      // Check Renderer local scene (THIS IS THE BUG - should not exist)
+      if (window.Renderer && window.Renderer.getScene) {
+        const rendererScene = window.Renderer.getScene();
+        const sceneManagerScene = window.SceneManager ? window.SceneManager.getScene() : null;
+        
+        if (rendererScene && rendererScene !== sceneManagerScene) {
+          count++;
+          log(`Found Scene #${count}: Renderer.js local scene (${rendererScene.children.length} children) - DUPLICATE!`, 'fail');
+        }
+      }
+      
+      return count;
+    }
+
+    function countRendererInstances() {
+      let count = 0;
+      
+      // Check SceneManager renderer
+      if (window.SceneManager && window.SceneManager.getRenderer) {
+        const renderer = window.SceneManager.getRenderer();
+        if (renderer && renderer instanceof THREE.WebGLRenderer) {
+          count++;
+          log(`Found Renderer #${count}: SceneManager singleton`, 'info');
+        }
+      }
+      
+      // Check Renderer.js local renderer
+      if (window.Renderer && window.Renderer.getRenderer) {
+        const rendererInstance = window.Renderer.getRenderer();
+        const sceneManagerRenderer = window.SceneManager ? window.SceneManager.getRenderer() : null;
+        
+        if (rendererInstance && rendererInstance !== sceneManagerRenderer) {
+          count++;
+          log(`Found Renderer #${count}: Renderer.js local renderer - DUPLICATE!`, 'fail');
+        }
+      }
+      
+      return count;
+    }
+
+    function checkGameLoopActive() {
+      // Check if Engine game loop is running
+      const engineRunning = window.Engine && window.Engine.isRunning;
+      
+      // Check if legacy main.js loop is active (would be window.animFrameId in main.js scope)
+      // Since we can't access closure variables, we check for symptoms
+      
+      log(`Engine.isRunning: ${engineRunning}`, engineRunning ? 'info' : 'fail');
+      
+      return engineRunning ? 1 : 0;
+    }
+
+    function checkPlayerMeshInScene() {
+      if (!window.Player || !window.Player.getMesh) {
+        log('Player.getMesh() not available', 'warning');
+        return false;
+      }
+      
+      const playerMesh = window.Player.getMesh();
+      if (!playerMesh) {
+        log('Player mesh does not exist', 'fail');
+        return false;
+      }
+      
+      const sceneManagerScene = window.SceneManager ? window.SceneManager.getScene() : null;
+      const rendererScene = window.Renderer ? window.Renderer.getScene() : null;
+      
+      // Check if player mesh is in scene
+      const inSceneManager = sceneManagerScene && sceneManagerScene.children.includes(playerMesh);
+      const inRenderer = rendererScene && rendererScene.children.includes(playerMesh);
+      
+      log(`Player mesh in SceneManager scene: ${inSceneManager}`, inSceneManager ? 'info' : 'fail');
+      log(`Player mesh in Renderer scene: ${inRenderer}`, inRenderer ? 'info' : 'fail');
+      
+      // The bug: player might be in one scene but renderer draws another
+      if (inSceneManager && !inRenderer && rendererScene !== sceneManagerScene) {
+        log('BUG DETECTED: Player mesh in SceneManager scene, but Renderer draws different scene!', 'fail');
+        return false;
+      }
+      
+      return inSceneManager && sceneManagerScene === rendererScene;
+    }
+
+    function checkInputConnected() {
+      if (!window.InputManager) {
+        log('InputManager not available', 'fail');
+        return false;
+      }
+      
+      // Simulate keypress and check if it registers
+      const testKey = 'KeyW';
+      const beforeState = window.InputManager.isDown(testKey);
+      
+      // Simulate keydown event
+      const event = new KeyboardEvent('keydown', { code: testKey });
+      window.dispatchEvent(event);
+      
+      const afterState = window.InputManager.isDown(testKey);
+      
+      // Cleanup
+      const upEvent = new KeyboardEvent('keyup', { code: testKey });
+      window.dispatchEvent(upEvent);
+      
+      const connected = afterState === true;
+      log(`Input events connected: ${connected}`, connected ? 'info' : 'fail');
+      
+      return connected;
+    }
+
+    function checkFirstFrameRendered() {
+      const canvas = document.getElementById('game-canvas');
+      if (!canvas) {
+        log('Canvas element not found', 'fail');
+        return false;
+      }
+      
+      // Sample canvas pixels to check if anything was rendered
+      try {
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(canvas.width / 2, canvas.height / 2, 1, 1);
+        const pixels = imageData.data;
+        
+        // Check if pixel is not black (0,0,0)
+        const isNotBlack = pixels[0] !== 0 || pixels[1] !== 0 || pixels[2] !== 0;
+        
+        log(`First frame rendered (canvas not black): ${isNotBlack}`, isNotBlack ? 'info' : 'fail');
+        log(`  Sample pixel at center: RGB(${pixels[0]}, ${pixels[1]}, ${pixels[2]})`, 'info');
+        
+        return isNotBlack;
+      } catch (e) {
+        log(`Could not sample canvas pixels: ${e.message}`, 'warning');
+        
+        // Alternative check: verify renderer has rendered at least once
+        if (window.SceneManager && window.SceneManager.getRenderer) {
+          const renderer = window.SceneManager.getRenderer();
+          if (renderer && renderer.info && renderer.info.render) {
+            const renderCalls = renderer.info.render.calls || 0;
+            log(`Renderer.info.render.calls: ${renderCalls}`, renderCalls > 0 ? 'info' : 'fail');
+            return renderCalls > 0;
+          }
+        }
+        
+        return false;
+      }
+    }
+
+    async function runBugConditionTest() {
+      testResults = [];
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<h2>🔄 Running Test...</h2>';
+      document.getElementById('run-test-btn').disabled = true;
+
+      log('========================================', 'info');
+      log('BUG CONDITION EXPLORATION TEST', 'warning');
+      log('========================================', 'info');
+      log('', 'info');
+      log('CRITICAL: This test encodes EXPECTED behavior', 'warning');
+      log('On UNFIXED code, this test MUST FAIL', 'warning');
+      log('Failures are COUNTEREXAMPLES proving the bug exists', 'warning');
+      log('', 'info');
+
+      try {
+        log('Step 1: Triggering Engine.start() initialization...', 'info');
+        
+        // Wait a moment for DOM to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Hide main menu, show canvas and HUD
+        const mainMenu = document.getElementById('main-menu');
+        if (mainMenu) mainMenu.classList.add('hidden');
+        
+        const canvas = document.getElementById('game-canvas');
+        if (canvas) {
+          canvas.classList.remove('hidden');
+          canvas.style.display = 'block';
+        }
+        
+        const hud = document.getElementById('hud-overlay');
+        if (hud) hud.classList.remove('hidden');
+        
+        // Trigger initialization
+        if (!window.Engine) {
+          log('ERROR: window.Engine not available!', 'fail');
+          displayResults();
+          return;
+        }
+        
+        log('Calling window.Engine.start(null)...', 'info');
+        window.Engine.start(null);
+        
+        // Wait for initialization to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        log('', 'info');
+        log('Step 2: Checking initialization state...', 'info');
+        log('', 'info');
+        
+        // Test each property
+        log('--- Property Check 1: Scene Instance Count ---', 'info');
+        const sceneCount = countSceneInstances();
+        const sceneCountOK = sceneCount === 1;
+        log(`✓ Expected: sceneInstanceCount == 1`, 'info');
+        log(`✗ Actual: sceneInstanceCount == ${sceneCount}`, sceneCountOK ? 'pass' : 'fail');
+        
+        if (!sceneCountOK) {
+          log('', 'info');
+          log('COUNTEREXAMPLE FOUND:', 'fail');
+          log(`  Scene Duality: ${sceneCount} separate THREE.Scene instances exist`, 'fail');
+          log(`  Expected: SceneManager singleton only`, 'fail');
+          log(`  Bug: Renderer.js creates local scene variable separate from singleton`, 'fail');
+          log('', 'info');
+        }
+        
+        log('', 'info');
+        log('--- Property Check 2: Renderer Instance Count ---', 'info');
+        const rendererCount = countRendererInstances();
+        const rendererCountOK = rendererCount === 1;
+        log(`✓ Expected: rendererInstanceCount == 1`, 'info');
+        log(`✗ Actual: rendererInstanceCount == ${rendererCount}`, rendererCountOK ? 'pass' : 'fail');
+        
+        if (!rendererCountOK) {
+          log('', 'info');
+          log('COUNTEREXAMPLE FOUND:', 'fail');
+          log(`  Duplicate Renderers: ${rendererCount} WebGLRenderer instances exist`, 'fail');
+          log(`  Expected: SceneManager singleton only`, 'fail');
+          log(`  Bug: Multiple WebGLRenderer instances attached to canvas`, 'fail');
+          log('', 'info');
+        }
+        
+        log('', 'info');
+        log('--- Property Check 3: Active Game Loops ---', 'info');
+        const gameLoopCount = checkGameLoopActive();
+        const gameLoopOK = gameLoopCount === 1;
+        log(`✓ Expected: activeGameLoops == 1`, 'info');
+        log(`✗ Actual: activeGameLoops == ${gameLoopCount}`, gameLoopOK ? 'pass' : 'fail');
+        
+        if (!gameLoopOK) {
+          log('', 'info');
+          log('COUNTEREXAMPLE FOUND:', 'fail');
+          log(`  Game loop not running or multiple loops active`, 'fail');
+          log(`  Expected: Engine.gameLoop() only`, 'fail');
+          log(`  Bug: main.js loop interferes OR game loop never started`, 'fail');
+          log('', 'info');
+        }
+        
+        log('', 'info');
+        log('--- Property Check 4: Player Mesh Scene Consistency ---', 'info');
+        const playerMeshOK = checkPlayerMeshInScene();
+        log(`✓ Expected: playerMeshScene == activeRenderScene`, 'info');
+        log(`✗ Actual: playerMeshScene consistency: ${playerMeshOK}`, playerMeshOK ? 'pass' : 'fail');
+        
+        if (!playerMeshOK) {
+          log('', 'info');
+          log('COUNTEREXAMPLE FOUND:', 'fail');
+          log(`  Player mesh in wrong scene or not in rendered scene`, 'fail');
+          log(`  Expected: Player.mesh in SceneManager.getScene()`, 'fail');
+          log(`  Bug: Player added to scene A, but Renderer draws scene B`, 'fail');
+          log('', 'info');
+        }
+        
+        log('', 'info');
+        log('--- Property Check 5: Input Events Connected ---', 'info');
+        const inputOK = checkInputConnected();
+        log(`✓ Expected: inputEventsConnected == true`, 'info');
+        log(`✗ Actual: inputEventsConnected == ${inputOK}`, inputOK ? 'pass' : 'fail');
+        
+        if (!inputOK) {
+          log('', 'info');
+          log('COUNTEREXAMPLE FOUND:', 'fail');
+          log(`  Input events not registering`, 'fail');
+          log(`  Expected: KeyW keydown updates InputManager.keys['KeyW']`, 'fail');
+          log(`  Bug: Event listeners not connected or InputManager locked`, 'fail');
+          log('', 'info');
+        }
+        
+        log('', 'info');
+        log('--- Property Check 6: First Frame Rendered ---', 'info');
+        const firstFrameOK = checkFirstFrameRendered();
+        log(`✓ Expected: firstFrameRendered == true`, 'info');
+        log(`✗ Actual: firstFrameRendered == ${firstFrameOK}`, firstFrameOK ? 'pass' : 'fail');
+        
+        if (!firstFrameOK) {
+          log('', 'info');
+          log('COUNTEREXAMPLE FOUND:', 'fail');
+          log(`  Canvas remains black, no first frame rendered`, 'fail');
+          log(`  Expected: Immediate render after Engine.start()`, 'fail');
+          log(`  Bug: No explicit render call before requestAnimationFrame`, 'fail');
+          log('', 'info');
+        }
+        
+        log('', 'info');
+        log('========================================', 'info');
+        log('TEST SUMMARY', 'warning');
+        log('========================================', 'info');
+        
+        const allChecks = [sceneCountOK, rendererCountOK, gameLoopOK, playerMeshOK, inputOK, firstFrameOK];
+        const passedCount = allChecks.filter(x => x).length;
+        const totalCount = allChecks.length;
+        
+        log(`Checks Passed: ${passedCount}/${totalCount}`, passedCount === totalCount ? 'pass' : 'fail');
+        log('', 'info');
+        
+        if (passedCount === totalCount) {
+          log('❌ TEST PASSED - This is UNEXPECTED!', 'warning');
+          log('', 'info');
+          log('ANALYSIS:', 'warning');
+          log('  The test passed, which means the bug may NOT exist or:', 'warning');
+          log('  1. Code already has a fix applied', 'warning');
+          log('  2. Root cause analysis might be incorrect', 'warning');
+          log('  3. Test needs adjustment', 'warning');
+          log('', 'info');
+          log('ACTION REQUIRED: Re-investigate the bug or verify the fix is working', 'warning');
+        } else {
+          log('✅ TEST FAILED AS EXPECTED - Bug Condition Confirmed!', 'pass');
+          log('', 'info');
+          log('COUNTEREXAMPLES DOCUMENTED:', 'info');
+          if (!sceneCountOK) log('  ⚠ Scene Duality: Multiple THREE.Scene instances', 'fail');
+          if (!rendererCountOK) log('  ⚠ Duplicate Renderers: Multiple WebGLRenderer instances', 'fail');
+          if (!gameLoopOK) log('  ⚠ Game Loop Issue: Not running or duplicates', 'fail');
+          if (!playerMeshOK) log('  ⚠ Player Mesh Wrong Scene: Inconsistent references', 'fail');
+          if (!inputOK) log('  ⚠ Input Disconnected: Events not propagating', 'fail');
+          if (!firstFrameOK) log('  ⚠ No First Frame: Black screen on init', 'fail');
+          log('', 'info');
+          log('These counterexamples prove the bug exists and validate root cause analysis', 'pass');
+          log('Proceed to implementation tasks to fix the bug', 'pass');
+        }
+        
+        log('', 'info');
+        log('========================================', 'info');
+        
+      } catch (error) {
+        log('', 'info');
+        log('ERROR DURING TEST EXECUTION:', 'fail');
+        log(`  ${error.message}`, 'fail');
+        log(`  Stack: ${error.stack}`, 'fail');
+        log('', 'info');
+        log('This error may indicate initialization failed completely', 'fail');
+      }
+      
+      displayResults();
+      document.getElementById('run-test-btn').disabled = false;
+    }
+  </script>
+</body>
+</html>
